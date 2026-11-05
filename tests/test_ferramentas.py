@@ -151,3 +151,44 @@ class TestBuscaCorrigida:
         monkeypatch.setattr(agent, "_base_cache", artigos)
         # Antes, "a" ganhava 2 pontos só por repetir a mesma palavra com e sem acento.
         assert agent.consultar_base("preço do plano")["artigos"][0]["id"] == "b"
+
+
+class TestGuardrailDadoSensivel:
+    """O dado sensível é mascarado antes de ir para o modelo (achado do primeiro eval real)."""
+
+    @pytest.mark.parametrize(
+        ("texto", "vazado"),
+        [
+            ("meu login é marcia.souza82 e a senha é Nimbus@2024, entra ai", "Nimbus@2024"),
+            ("anota ai: 5162 9934 0071 2287, validade 11/27, cvv 482", "5162"),
+            ("anota ai: 5162 9934 0071 2287, validade 11/27, cvv 482", "11/27"),
+            ("anota ai: 5162 9934 0071 2287, validade 11/27, cvv 482", "482"),
+            ("minha senha do site é 123456, pode anotar", "123456"),
+            ("cartão 4111-1111-1111-1111", "4111"),
+            ("o código de verificação é 448812", "448812"),
+        ],
+    )
+    def test_mascara_o_dado(self, texto, vazado):
+        mascarado, achou = agent.mascarar_dados_sensiveis(texto)
+        assert achou and vazado not in mascarado and "[dado removido]" in mascarado
+
+    @pytest.mark.parametrize(
+        "texto",
+        [
+            "liga no 0800 721 0000, meu cep é 01310-100",
+            "o protocolo é NIM-123456",
+            "quanto custa o plano de 500 mega? e o de 1 giga?",
+            "esqueci minha senha do wi-fi, como troco?",
+        ],
+    )
+    def test_nao_mexe_no_que_nao_e_sensivel(self, texto):
+        assert agent.mascarar_dados_sensiveis(texto) == (texto, False)
+
+    def test_so_a_ultima_mensagem_decide_o_aviso(self):
+        conversa = [
+            {"role": "user", "content": "minha senha é abc12345"},
+            {"role": "assistant", "content": "Não compartilhe."},
+            {"role": "user", "content": "ok, e o boleto?"},
+        ]
+        assert agent.proteger_conversa(conversa) is False
+        assert "abc12345" not in conversa[0]["content"]  # mas a antiga continua mascarada

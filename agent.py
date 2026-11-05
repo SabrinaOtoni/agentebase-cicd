@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 
 # ==========================================================================
@@ -55,7 +55,14 @@ MAX_TOKENS_RESPOSTA: int = int(CONFIG["max_tokens_resposta"])
 TIMEOUT_MODELO_S: float = float(CONFIG.get("timeout_modelo_s", 30))
 
 RESPOSTA_VAZIA = "Desculpe, não consegui formular uma resposta agora. Pode repetir a pergunta com outras palavras?"
+RESPOSTA_FILTRADA = (
+    "Não posso atender a esse pedido. Sou a Val, do atendimento Nimbus, e posso ajudar com a sua internet fibra."
+)
 LIMITE_ITERACOES = "Atingi o limite de iterações sem concluir. Tente reformular a pergunta."
+AVISO_DADO_SENSIVEL = (
+    "Por segurança, não compartilhe senhas, dados de cartão ou códigos de verificação por aqui. "
+    "Eu não vou usar essas informações."
+)
 
 _cliente: OpenAI | None = None
 
@@ -298,6 +305,68 @@ def executar_ferramenta(nome: str, argumentos: dict) -> str:
 # ==========================================================================
 
 
+# --------------------------------------------------------------------------
+# Guardrail de entrada: dado sensível nunca chega ao modelo.
+# --------------------------------------------------------------------------
+# O prompt manda a Val avisar o cliente, mas o eval mostrou que o modelo nem
+# sempre obedece. Regra de segurança não pode depender do modelo: o código
+# mascara o dado antes de enviar a conversa ao provedor e o aviso entra
+# sempre, no começo da resposta.
+
+_MASCARA = "[dado removido]"
+_PADROES_SENSIVEIS = [
+    # número de cartão: 13 a 19 dígitos, com espaço ou hífen entre eles
+    (re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)"), _MASCARA),
+    # CVV / código de segurança do cartão
+    (re.compile(r"(?i)\b(cvv|cvc|c[oó]digo de seguran[cç]a)(\D{0,12}?)(\d{3,4})\b"), rf"\1\2{_MASCARA}"),
+    # validade do cartão
+    (re.compile(r"(?i)\b(validade|vencimento do cart[aã]o)(\D{0,6}?)(\d{2}/\d{2,4})"), rf"\1\2{_MASCARA}"),
+    # senha: "a senha é X", "senha: X", "minha senha do site é X", "senha 123456"
+    (re.compile(r"(?i)\b(senha[^.,;\n]{0,25}?(?:\s(?:é|e|eh)\s|:|=)\s*)([^\s,;]+)"), rf"\1{_MASCARA}"),
+    (re.compile(r"(?i)\b(senha\s+)(\d{4,})"), rf"\1{_MASCARA}"),
+    # código de verificação / dois fatores
+    (
+        re.compile(
+            r"(?i)\b(c[oó]digo (?:de )?(?:verifica[cç][aã]o|dois fatores|2fa|sms|autentica[cç][aã]o)\D{0,12}?)(\d{4,8})"
+        ),
+        rf"\1{_MASCARA}",
+    ),
+]
+
+
+def mascarar_dados_sensiveis(texto: str) -> tuple[str, bool]:
+    """Troca senha, cartão, CVV, validade e código de verificação por [dado removido]."""
+    mascarado = texto
+    for padrao, troca in _PADROES_SENSIVEIS:
+        mascarado = padrao.sub(troca, mascarado)
+    return mascarado, mascarado != texto
+
+
+def proteger_conversa(mensagens: list) -> bool:
+    """Mascara as mensagens do cliente no lugar. Devolve True se a ÚLTIMA tinha dado sensível."""
+    do_cliente = [
+        m for m in mensagens if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str)
+    ]
+    achou = False
+    for m in do_cliente:
+        m["content"], achou = mascarar_dados_sensiveis(m["content"])
+    return achou  # o valor que sobra é o da última mensagem do cliente
+
+
+def _encerrar(mensagens: list, texto: str, rastro: dict) -> str:
+    if rastro.get("dado_sensivel"):
+        texto = f"{AVISO_DADO_SENSIVEL}\n\n{texto}"
+    mensagens.append({"role": "assistant", "content": texto})
+    return texto
+
+
+def _bloqueio_do_filtro(exc: BadRequestError) -> bool:
+    """O Azure OpenAI responde 400 com código content_filter quando barra o pedido."""
+    corpo = exc.body if isinstance(exc.body, dict) else {}
+    codigo = getattr(exc, "code", None) or corpo.get("code") or (corpo.get("error") or {}).get("code")
+    return codigo == "content_filter" or "content management policy" in str(exc)
+
+
 def novo_rastro() -> dict[str, Any]:
     """O que aconteceu numa resposta: ferramentas, tokens, chamadas ao modelo e sinais de problema."""
     return {
@@ -308,6 +377,8 @@ def novo_rastro() -> dict[str, Any]:
         "cortada": False,  # o modelo parou no max_tokens: frase pela metade
         "vazia": False,  # o modelo devolveu texto vazio e entrou a frase de reserva
         "limite_iteracoes": False,
+        "filtro_conteudo": False,  # o filtro de conteúdo do provedor barrou o pedido ou a resposta
+        "dado_sensivel": False,  # a última mensagem do cliente tinha dado sensível (mascarado)
     }
 
 
@@ -328,15 +399,24 @@ def responder(
     """
     cliente = get_cliente()
     rastro = rastro if rastro is not None else novo_rastro()
+    rastro["dado_sensivel"] = proteger_conversa(mensagens)
 
     for _ in range(MAX_ITERACOES):
-        resposta = cliente.chat.completions.create(
-            model=MODELO,
-            messages=mensagens,
-            tools=FERRAMENTAS,
-            temperature=TEMPERATURA,
-            max_tokens=MAX_TOKENS_RESPOSTA,
-        )
+        try:
+            resposta = cliente.chat.completions.create(
+                model=MODELO,
+                messages=mensagens,
+                tools=FERRAMENTAS,
+                temperature=TEMPERATURA,
+                max_tokens=MAX_TOKENS_RESPOSTA,
+            )
+        except BadRequestError as exc:
+            if not _bloqueio_do_filtro(exc):
+                raise
+            # Guardrail de entrada: o filtro de conteúdo do Azure barrou o pedido
+            # (ex.: tentativa de jailbreak). Vira uma recusa educada, não um erro.
+            rastro["filtro_conteudo"] = True
+            return _encerrar(mensagens, RESPOSTA_FILTRADA, rastro)
         rastro["chamadas_modelo"] += 1
         uso = getattr(resposta, "usage", None)
         if uso is not None:
@@ -353,10 +433,13 @@ def responder(
                 # Sem isto, o turno vazio volta no histórico e a API recusa a conversa inteira.
                 rastro["vazia"] = True
                 texto = RESPOSTA_VAZIA
-            if getattr(escolha, "finish_reason", None) == "length":
+            fim = getattr(escolha, "finish_reason", None)
+            if fim == "length":
                 rastro["cortada"] = True
-            mensagens.append({"role": "assistant", "content": texto})
-            return texto
+            if fim == "content_filter":  # guardrail de saída do Azure cortou a resposta
+                rastro["filtro_conteudo"] = True
+                texto = RESPOSTA_FILTRADA
+            return _encerrar(mensagens, texto, rastro)
 
         # Caso 2: quer usar ferramentas.
         mensagens.append(cast(ChatCompletionMessageParam, recado.model_dump(exclude_none=True)))
@@ -383,8 +466,7 @@ def responder(
             mensagens.append({"role": "tool", "tool_call_id": chamada.id, "content": resultado})
 
     rastro["limite_iteracoes"] = True
-    mensagens.append({"role": "assistant", "content": LIMITE_ITERACOES})
-    return LIMITE_ITERACOES
+    return _encerrar(mensagens, LIMITE_ITERACOES, rastro)
 
 
 # ==========================================================================

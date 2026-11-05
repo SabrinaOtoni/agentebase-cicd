@@ -237,6 +237,8 @@ def chat(pedido: PedidoChat, request: Request) -> RespostaChat:
         cortada=rastro["cortada"],
         vazia=rastro["vazia"],
         limite_iteracoes=rastro["limite_iteracoes"],
+        filtro_conteudo=rastro["filtro_conteudo"],
+        dado_sensivel_mascarado=rastro["dado_sensivel"],
     )
     return RespostaChat(
         resposta=texto,

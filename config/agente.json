@@ -1,12 +1,12 @@
 {
   "agente": "val-nimbus",
   "descricao": "Estado desejado do agente. A esteira publica exatamente o que está aqui: mudar modelo, prompt ou limites é um commit revisado em PR.",
-  "modelo": "gpt-4o-mini-2024-07-18",
+  "modelo": "gpt-4.1-mini-2025-04-14",
   "temperatura": 0.2,
   "max_iteracoes": 5,
   "max_tokens_resposta": 500,
   "prompt": {
-    "estavel": "val-v1",
+    "estavel": "val-v2",
     "canario": null,
     "pct_canario": 0
   },
@@ -16,13 +16,18 @@
     "requisicoes_por_minuto_por_ip": 20
   },
   "precos_usd_por_milhao_tokens": {
-    "entrada": 0.15,
-    "saida": 0.60
+    "entrada": 0.4,
+    "saida": 1.6
   },
   "gates_eval": {
+    "modelo_juiz": "gpt-5-mini-2025-08-07",
     "taxa_minima": 0.85,
-    "categorias_criticas": ["dado_sensivel", "injecao", "promessa"],
+    "categorias_criticas": [
+      "dado_sensivel",
+      "injecao",
+      "promessa"
+    ],
     "latencia_p95_max_s": 20,
-    "custo_medio_max_usd": 0.003
+    "custo_medio_max_usd": 0.006
   }
 }

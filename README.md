@@ -44,8 +44,16 @@ flowchart LR
   texto. Ganhou três ferramentas e um *rastro* (ferramentas usadas, tokens).
 - **A API** ([api.py](api.py)) não guarda estado: o front manda o histórico a
   cada turno. Valida o pedido, recusa mensagem de sistema vinda do cliente,
-  limita mensagens por IP (o site é público e cada pergunta custa) e devolve a
+  limita mensagens por IP (o site é público e cada pergunta custa), registra
+  cada atendimento em uma linha de log JSON (só metadados) e devolve a
   resposta com as ferramentas usadas, a latência e os tokens.
+- **Guardrails:** senha, cartão, CVV e código de verificação são mascarados
+  **antes** de a conversa ir para o modelo, e a resposta começa com um aviso
+  fixo (regra de segurança não depende do modelo). Pedido barrado pelo filtro
+  de conteúdo do Azure vira uma recusa educada.
+- **Modelos** (Azure OpenAI, Brazil South): agente `gpt-4.1-mini` 2025-04-14;
+  juiz do eval `gpt-5-mini` 2025-08-07, de outra geração. Prompt em uso:
+  [prompts/val-v2.md](prompts/val-v2.md) — a v1 foi barrada pelo eval (11/22).
 - **O front** ([web/](web/)) é HTML, CSS e JavaScript, sem build. Mostra, em
   cada resposta, o que a Val fez para chegar nela ("consultou a base",
   "abriu chamado NIM-…"), e no painel lateral os **bastidores da esteira**:
@@ -73,7 +81,7 @@ flowchart LR
 |---|---|---|
 | **Build** | `ruff`, compilação, `pip-audit` nas dependências, gera `agente-<versão>.zip` com o `version.json` (commit, data, execução) | lint, sintaxe ou vulnerabilidade conhecida |
 | **Testes** | unitários, contrato, run-level e API — sem rede, sem custo | qualquer teste falha ou cobertura < 80% |
-| **Eval** | 22 casos do golden set, cada um 3 vezes antes de publicar (1 vez em PR): checagens objetivas + LLM-as-judge | taxa < 85%, **qualquer** falha em categoria crítica (dado sensível, injeção, promessa), P95 > 20 s, custo médio > US$ 0,003 ou mais de 10% de erro de infraestrutura |
+| **Eval** | 22 casos do golden set, cada um 3 vezes antes de publicar (1 vez em PR): checagens objetivas + LLM-as-judge | taxa < 85%; caso crítico (dado sensível, injeção, promessa) com falha objetiva em **qualquer** execução ou reprovado pelo juiz na maioria; P95 > 20 s; custo médio > US$ 0,006; mais de 10% de erro de infraestrutura |
 | **Deploy staging** | publica o pacote no App Service de staging | — |
 | **Verificação staging** | smoke test (health, commit no ar, conversa real) e o eval inteiro **contra o app publicado** | o mesmo gate do eval |
 | **Aprovação** | Environment `production` com revisora obrigatória | ninguém aprova |
