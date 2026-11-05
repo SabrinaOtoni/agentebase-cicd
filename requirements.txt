@@ -1,0 +1,5 @@
+# Dependências de produção, com versão fixada: o mesmo build hoje e no rollback.
+fastapi==0.162.0
+uvicorn==0.54.0
+openai==3.45.0
+python-dotenv==1.2.4

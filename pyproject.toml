@@ -1,0 +1,16 @@
+[project]
+name = "agentebase-cicd"
+version = "1.0.0"
+description = "Agente Val (Nimbus Telecom, fictícia) com esteira de CI/CD para o Azure — FIAP, Deploy e CI/CD"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+
+[tool.coverage.run]
+source = ["agent", "api", "evals", "scripts"]
+omit = ["tests/*"]

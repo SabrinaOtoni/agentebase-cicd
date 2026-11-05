@@ -1,0 +1,86 @@
+# Rollback de produção: publica de novo o pacote de uma release anterior.
+#
+# Não recompila nada — o pacote da release é exatamente o que esteve no ar
+# (versão imutável). Passa pelo Environment "production": quem reverte
+# precisa aprovar, e fica registrado.
+#
+#   Manual:      Actions -> Rollback -> Run workflow -> versao (vazio = a anterior à mais recente)
+#   Automático:  a esteira chama este workflow com versao=ultima quando a
+#                verificação de produção falha (a versão nova ainda não virou release).
+
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Release para voltar (ex.: v1.0.12). Vazio = a anterior à mais recente."
+        required: false
+        default: ""
+  workflow_call:
+    inputs:
+      versao:
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Rollback produção
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    concurrency:
+      group: deploy-producao
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PEDIDO: ${{ inputs.versao }}
+      URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Escolher a release
+        id: alvo
+        run: |
+          case "$PEDIDO" in
+            "")     tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 2 --json tagName -q '.[1].tagName') ;;
+            ultima) tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName -q '.[0].tagName') ;;
+            *)      tag="$PEDIDO" ;;
+          esac
+          if [ -z "$tag" ]; then
+            echo "::error::Não há release para onde voltar (a primeira versão ainda não foi publicada com sucesso)."
+            exit 1
+          fi
+          echo "Voltando produção para $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Baixar o pacote da release
+        id: pacote
+        run: |
+          gh release download "${{ steps.alvo.outputs.tag }}" --repo "$GITHUB_REPOSITORY" -p "agente-*.zip" -D dist
+          pacote=$(ls dist/agente-*.zip)
+          commit=$(unzip -p "$pacote" version.json | python3 -c "import json,sys; print(json.load(sys.stdin)['commit'])")
+          echo "pacote=$pacote" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar a versão anterior
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.PRODUCTION_APP }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ${{ steps.pacote.outputs.pacote }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Smoke test da versão restaurada
+        run: |
+          pip install httpx==0.28.1
+          python scripts/smoke.py "$URL" --commit "${{ steps.pacote.outputs.commit }}"
+          echo "### Rollback concluído: produção em ${{ steps.alvo.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"

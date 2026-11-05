@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Val · Nimbus Telecom</title>
+  <meta name="description" content="Chat com a Val, agente de atendimento da Nimbus Telecom (empresa fictícia). Trabalho de Deploy e CI/CD, FIAP.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2314213D'/%3E%3Cpath d='M9 21a5 5 0 0 1 1-9.9A7 7 0 0 1 23 12a4.5 4.5 0 0 1 0 9z' fill='%23FF7A45'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+  <div class="moldura">
+    <aside class="painel" aria-label="Sobre a Val">
+      <div class="marca">
+        <svg class="nuvem" viewBox="0 0 40 28" aria-hidden="true"><path d="M10 26a9 9 0 0 1 1.6-17.9A12 12 0 0 1 34 10.4 7.8 7.8 0 0 1 32.4 26z"/></svg>
+        <span>Nimbus <em>Telecom</em></span>
+      </div>
+
+      <h1>Fale com a <span class="destaque">Val</span>.</h1>
+      <p class="sub">Atendimento de internet fibra. Ela consulta a base oficial antes de responder, abre chamado quando precisa e não promete o que não pode cumprir.</p>
+
+      <div class="atalhos" aria-label="Sugestões de pergunta">
+        <button type="button" data-pergunta="Quais planos de internet vocês têm?">Quais planos vocês têm?</button>
+        <button type="button" data-pergunta="Minha internet caiu e a luz do modem está piscando em vermelho.">Minha internet caiu</button>
+        <button type="button" data-pergunta="Quanto fica o plano de 500 mega mais a taxa de mudança de endereço?">Plano 500 + mudança</button>
+        <button type="button" data-pergunta="Quero cancelar meu contrato.">Quero cancelar</button>
+      </div>
+
+      <section class="bastidores" aria-label="Versão no ar">
+        <header>
+          <span class="rotulo">Bastidores da esteira</span>
+          <span id="ambiente" class="ambiente">…</span>
+        </header>
+        <dl>
+          <div><dt>versão</dt><dd id="info-versao">…</dd></div>
+          <div><dt>commit</dt><dd id="info-commit">…</dd></div>
+          <div><dt>build</dt><dd id="info-build">…</dd></div>
+          <div><dt>modelo</dt><dd id="info-modelo">…</dd></div>
+          <div><dt>prompt</dt><dd id="info-prompt">…</dd></div>
+        </dl>
+      </section>
+
+      <footer class="rodape">Empresa fictícia · Trabalho de Deploy e CI/CD · FIAP 3AIER</footer>
+    </aside>
+
+    <main class="conversa">
+      <header class="topo">
+        <div class="quem">
+          <div class="avatar" aria-hidden="true">V</div>
+          <div>
+            <strong>Val</strong>
+            <span id="status" class="status">conectando…</span>
+          </div>
+        </div>
+        <button type="button" id="nova" class="nova">Nova conversa</button>
+      </header>
+
+      <ol id="mensagens" class="mensagens" aria-live="polite">
+        <li class="vazio" id="vazio">
+          <p>Comece por uma das sugestões ao lado ou escreva sua dúvida.</p>
+        </li>
+      </ol>
+
+      <form id="form" class="compositor" autocomplete="off">
+        <label for="entrada" class="sr">Sua mensagem</label>
+        <textarea id="entrada" rows="1" maxlength="1500" placeholder="Escreva sua mensagem…" required></textarea>
+        <button type="submit" id="enviar" aria-label="Enviar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h13M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+{
+  "aviso": "Base de conhecimento FICTÍCIA, criada para o trabalho de Deploy e CI/CD (FIAP). A Nimbus Telecom não existe.",
+  "artigos": [
+    {
+      "id": "planos",
+      "titulo": "Planos de internet fibra e preços",
+      "palavras_chave": [
+        "plano",
+        "planos",
+        "preço",
+        "preco",
+        "valor",
+        "mensalidade",
+        "mega",
+        "giga",
+        "velocidade",
+        "fibra",
+        "contratar",
+        "assinar"
+      ],
+      "texto": "A Nimbus oferece três planos de internet fibra residencial: Nimbus 300 Mega por R$ 99,90 por mês; Nimbus 500 Mega por R$ 129,90 por mês; Nimbus 1 Giga por R$ 199,90 por mês. Todos têm franquia ilimitada e modem Wi-Fi dual band em comodato. Os preços valem para pagamento até o vencimento."
+    },
+    {
+      "id": "instalacao",
+      "titulo": "Taxa e agendamento de instalação",
+      "palavras_chave": [
+        "instalação",
+        "instalacao",
+        "instalar",
+        "taxa",
+        "agendamento",
+        "agendar",
+        "técnico",
+        "tecnico",
+        "visita",
+        "fidelidade"
+      ],
+      "texto": "A instalação é gratuita para contratos com fidelidade de 12 meses. Sem fidelidade, a taxa de instalação é R$ 150,00. Depois da aprovação do cadastro, a data da visita técnica é combinada pela equipe de agendamento, que entra em contato com o cliente. O atendimento do chat não define nem garante datas de instalação."
+    },
+    {
+      "id": "cancelamento",
+      "titulo": "Cancelamento e multa de fidelidade",
+      "palavras_chave": [
+        "cancelar",
+        "cancelamento",
+        "encerrar",
+        "multa",
+        "fidelidade",
+        "rescisão",
+        "rescisao",
+        "desistir",
+        "cancelo",
+        "sair da nimbus"
+      ],
+      "texto": "O cancelamento é feito pela equipe de retenção, a partir de um chamado aberto no atendimento. Quem cancela antes de completar 12 meses de fidelidade paga multa proporcional aos meses restantes. O atendimento do chat não cancela contratos diretamente e não isenta multas."
+    },
+    {
+      "id": "cobertura",
+      "titulo": "Cidades atendidas",
+      "palavras_chave": [
+        "cobertura",
+        "cidade",
+        "cidades",
+        "atende",
+        "disponível",
+        "disponivel",
+        "região",
+        "regiao",
+        "bairro",
+        "endereço",
+        "endereco",
+        "cep",
+        "atendem",
+        "atendida",
+        "atendidas",
+        "cobrem",
+        "chega",
+        "moro",
+        "são paulo",
+        "campinas",
+        "santo andré",
+        "são bernardo"
+      ],
+      "texto": "A Nimbus atende hoje as cidades de São Paulo, Campinas, Santo André e São Bernardo do Campo. A disponibilidade em cada endereço é confirmada pelo CEP na área do cliente, no site, antes da contratação."
+    },
+    {
+      "id": "sem-conexao",
+      "titulo": "Internet caiu ou está sem conexão",
+      "palavras_chave": [
+        "caiu",
+        "queda",
+        "sem internet",
+        "sem conexão",
+        "sem conexao",
+        "não funciona",
+        "nao funciona",
+        "parou",
+        "offline",
+        "luz vermelha",
+        "piscando",
+        "reiniciar",
+        "modem",
+        "caindo",
+        "sem sinal"
+      ],
+      "texto": "Quando a internet cair: 1) confira se as luzes do modem estão acesas; luz LOS piscando em vermelho indica problema na fibra; 2) desligue o modem da tomada por 30 segundos e ligue de novo; 3) aguarde 3 minutos e teste outra vez. Se o problema continuar, o atendimento abre um chamado técnico. Problemas que duram mais de 48 horas são escalados para a equipe técnica."
+    },
+    {
+      "id": "lentidao",
+      "titulo": "Internet lenta",
+      "palavras_chave": [
+        "lenta",
+        "lento",
+        "lentidão",
+        "lentidao",
+        "devagar",
+        "velocidade baixa",
+        "wi-fi",
+        "wifi",
+        "sinal",
+        "5ghz",
+        "2.4ghz",
+        "5 ghz",
+        "2.4 ghz"
+      ],
+      "texto": "Para medir a velocidade, use um computador ligado ao modem por cabo. Pelo Wi-Fi, prefira a rede 5 GHz perto do modem; a rede 2.4 GHz alcança mais longe, mas é mais lenta. Paredes, espelhos e micro-ondas reduzem o sinal. A Nimbus garante no mínimo 80% da velocidade contratada em medição por cabo."
+    },
+    {
+      "id": "boleto",
+      "titulo": "Fatura, segunda via e formas de pagamento",
+      "palavras_chave": [
+        "boleto",
+        "fatura",
+        "conta",
+        "segunda via",
+        "2ª via",
+        "pagar",
+        "pagamento",
+        "pix",
+        "débito",
+        "debito",
+        "vencimento",
+        "atraso",
+        "juros"
+      ],
+      "texto": "A segunda via da fatura fica na área do cliente, no site, e no aplicativo Nimbus. As formas de pagamento são boleto, Pix e débito automático. Os vencimentos disponíveis são os dias 5, 10, 15 e 20. Pagamentos em atraso têm multa de 2% e juros de 1% ao mês."
+    },
+    {
+      "id": "mudanca-endereco",
+      "titulo": "Mudança de endereço",
+      "palavras_chave": [
+        "mudança",
+        "mudanca",
+        "mudar",
+        "endereço",
+        "endereco",
+        "transferir",
+        "transferência",
+        "transferencia",
+        "mudei"
+      ],
+      "texto": "A mudança de endereço é pedida na área do cliente e custa R$ 80,00. O novo endereço precisa estar em uma das cidades atendidas. A data da visita técnica no novo endereço é combinada pela equipe de agendamento."
+    },
+    {
+      "id": "modem",
+      "titulo": "Modem e equipamentos",
+      "palavras_chave": [
+        "modem",
+        "roteador",
+        "equipamento",
+        "aparelho",
+        "comodato",
+        "devolver",
+        "devolução",
+        "devolucao",
+        "senha do wi-fi",
+        "trocar senha"
+      ],
+      "texto": "O modem Wi-Fi dual band é cedido em comodato e deve ser devolvido em até 30 dias após o cancelamento. O nome e a senha da rede Wi-Fi podem ser trocados pelo aplicativo Nimbus, em Minha Rede. O atendimento nunca pede a senha do Wi-Fi nem a senha da área do cliente."
+    },
+    {
+      "id": "canais",
+      "titulo": "Canais de atendimento",
+      "palavras_chave": [
+        "telefone",
+        "0800",
+        "central",
+        "atendimento",
+        "horário",
+        "horario",
+        "contato",
+        "falar com atendente",
+        "humano",
+        "canal",
+        "ouvidoria",
+        "atendente",
+        "pessoa",
+        "falar com alguém",
+        "reclamação",
+        "reclamacao"
+      ],
+      "texto": "A central da Nimbus atende pelo 0800 721 0000, de segunda a sábado, das 8h às 20h. O chat do site funciona 24 horas. A ouvidoria recebe reclamações não resolvidas pelo e-mail ouvidoria@nimbus.exemplo."
+    },
+    {
+      "id": "escopo",
+      "titulo": "O que a Nimbus oferece",
+      "palavras_chave": [
+        "celular",
+        "móvel",
+        "movel",
+        "chip",
+        "tv",
+        "televisão",
+        "televisao",
+        "telefone fixo",
+        "streaming",
+        "produtos",
+        "serviços",
+        "servicos"
+      ],
+      "texto": "A Nimbus oferece somente internet fibra residencial. A empresa não vende planos de celular, chip, TV por assinatura nem telefone fixo."
+    }
+  ]
+}

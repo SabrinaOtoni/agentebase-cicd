@@ -1,0 +1,226 @@
+:root {
+  --tinta: #14213d;
+  --tinta-2: #1f2f52;
+  --papel: #fbf7f0;
+  --papel-2: #f2ebdf;
+  --linha: #e3d9c8;
+  --texto: #1b2235;
+  --texto-suave: #5d6475;
+  --fibra: #ff7a45;
+  --fibra-suave: #ffe3d6;
+  --sinal: #2bb3a3;
+  --alerta: #f2b134;
+  --erro: #c8423b;
+  --raio: 18px;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --serifa: "Fraunces", Georgia, serif;
+  --sans: "Public Sans", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papel: #10182b;
+    --papel-2: #18223a;
+    --linha: #26324f;
+    --texto: #ece6da;
+    --texto-suave: #a4abbc;
+    --fibra-suave: #3a2a2a;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--texto);
+  font: 16px/1.55 var(--sans);
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.moldura {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) 1fr;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ---------- painel lateral: a "fibra" ---------- */
+.painel {
+  position: relative;
+  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 28px 22px;
+  background: var(--tinta);
+  color: #f4efe6;
+  isolation: isolate;
+}
+.painel::before {
+  /* feixes de luz atravessando o painel, como fibra óptica */
+  content: "";
+  position: absolute;
+  inset: -40% -60%;
+  z-index: -1;
+  background:
+    repeating-linear-gradient(115deg, transparent 0 46px, rgba(255, 122, 69, .10) 46px 47px, transparent 47px 92px),
+    repeating-linear-gradient(115deg, transparent 0 130px, rgba(43, 179, 163, .16) 130px 132px);
+  animation: deriva 40s linear infinite;
+}
+@keyframes deriva { to { transform: translateX(184px); } }
+@media (prefers-reduced-motion: reduce) { .painel::before { animation: none; } }
+
+.marca { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: .02em; }
+.marca em { font-style: normal; color: var(--fibra); }
+.nuvem { width: 34px; fill: var(--fibra); }
+
+.painel h1 {
+  margin: 8px 0 0;
+  font: 700 clamp(2.2rem, 4vw, 3rem)/1.02 var(--serifa);
+  letter-spacing: -.01em;
+}
+.destaque { color: var(--fibra); font-style: italic; }
+.sub { margin: 0; color: #c9c3b8; font-size: .95rem; }
+
+.atalhos { display: flex; flex-wrap: wrap; gap: 8px; }
+.atalhos button {
+  border: 1px solid rgba(244, 239, 230, .28);
+  background: rgba(244, 239, 230, .06);
+  color: #f4efe6;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font: 500 .88rem var(--sans);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.atalhos button:hover { background: rgba(255, 122, 69, .18); border-color: var(--fibra); transform: translateY(-1px); }
+
+.bastidores {
+  margin-top: auto;
+  border: 1px dashed rgba(244, 239, 230, .3);
+  border-radius: var(--raio);
+  padding: 14px 16px;
+  background: rgba(10, 16, 32, .35);
+  font-family: var(--mono);
+  font-size: .78rem;
+}
+.bastidores header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.rotulo { text-transform: uppercase; letter-spacing: .12em; color: #a9b3c9; }
+.ambiente {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+  background: #3a4566;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.ambiente.producao { background: var(--sinal); color: #062b27; }
+.ambiente.staging { background: var(--alerta); color: #3b2800; }
+.bastidores dl { margin: 0; display: grid; gap: 3px; }
+.bastidores dl div { display: grid; grid-template-columns: 64px 1fr; gap: 8px; }
+.bastidores dt { color: #8f9ab3; }
+.bastidores dd { margin: 0; color: #f4efe6; overflow-wrap: anywhere; }
+.bastidores a { color: var(--fibra); }
+.rodape { font-size: .75rem; color: #8f9ab3; }
+
+/* ---------- conversa ---------- */
+.conversa { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; }
+
+.topo {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--linha);
+}
+.quem { display: flex; align-items: center; gap: 12px; }
+.quem strong { display: block; font-family: var(--serifa); font-size: 1.15rem; }
+.avatar {
+  width: 42px; height: 42px; border-radius: 14px 14px 14px 4px;
+  display: grid; place-items: center;
+  background: var(--fibra); color: var(--tinta);
+  font: 700 1.2rem var(--serifa);
+}
+.status { font-size: .8rem; color: var(--texto-suave); }
+.status::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--texto-suave); vertical-align: 1px; }
+.status.ok::before { background: var(--sinal); }
+.status.falha::before { background: var(--erro); }
+.nova {
+  border: 1px solid var(--linha); background: transparent; color: var(--texto);
+  padding: 8px 14px; border-radius: 12px; font: 500 .85rem var(--sans); cursor: pointer;
+}
+.nova:hover { border-color: var(--fibra); }
+
+.mensagens {
+  list-style: none; margin: 0; padding: 28px clamp(16px, 4vw, 56px);
+  overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+}
+.vazio { margin: auto; text-align: center; color: var(--texto-suave); max-width: 340px; }
+
+.msg { max-width: min(640px, 88%); display: flex; flex-direction: column; gap: 6px; animation: entra .22s ease-out; }
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } }
+.msg .balao { padding: 12px 16px; border-radius: var(--raio); overflow-wrap: anywhere; }
+.msg .balao p { margin: 0 0 .5em; }
+.msg .balao p:last-child { margin-bottom: 0; }
+.msg .balao ul, .msg .balao ol { margin: .2em 0 .6em; padding-left: 1.3em; }
+
+.msg.usuario { align-self: flex-end; align-items: flex-end; }
+.msg.usuario .balao { background: var(--tinta); color: #f4efe6; border-bottom-right-radius: 4px; }
+.msg.val { align-self: flex-start; }
+.msg.val .balao { background: var(--papel-2); border: 1px solid var(--linha); border-bottom-left-radius: 4px; }
+.msg.erro .balao { background: transparent; border: 1px solid var(--erro); color: var(--erro); }
+
+.recibos { display: flex; flex-wrap: wrap; gap: 6px; }
+.recibo {
+  font: 500 .72rem var(--mono);
+  padding: 3px 9px; border-radius: 8px;
+  background: var(--fibra-suave); color: var(--texto);
+  border-left: 3px solid var(--fibra);
+}
+.recibo.chamado { border-left-color: var(--sinal); }
+.meta { font: .7rem var(--mono); color: var(--texto-suave); }
+
+.digitando .balao { display: inline-flex; gap: 4px; align-items: flex-end; height: 44px; }
+.digitando i { width: 5px; background: var(--fibra); border-radius: 2px; animation: barra 1s ease-in-out infinite; }
+.digitando i:nth-child(1) { height: 8px; }
+.digitando i:nth-child(2) { height: 14px; animation-delay: .15s; }
+.digitando i:nth-child(3) { height: 20px; animation-delay: .3s; }
+@keyframes barra { 50% { opacity: .25; } }
+
+.compositor {
+  display: flex; gap: 10px; align-items: flex-end;
+  margin: 0 clamp(16px, 4vw, 56px) 20px;
+  padding: 8px 8px 8px 16px;
+  border: 1.5px solid var(--linha); border-radius: 22px;
+  background: var(--papel);
+}
+.compositor:focus-within { border-color: var(--fibra); }
+.compositor textarea {
+  flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: var(--texto);
+  font: 16px/1.5 var(--sans); padding: 8px 0; max-height: 160px;
+}
+.compositor button {
+  flex: none; width: 44px; height: 44px; border: 0; border-radius: 16px;
+  background: var(--fibra); cursor: pointer; display: grid; place-items: center;
+}
+.compositor button:disabled { opacity: .45; cursor: wait; }
+.compositor svg { width: 22px; fill: none; stroke: var(--tinta); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- celular ---------- */
+@media (max-width: 820px) {
+  .moldura { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .painel { padding: 14px 16px 12px; gap: 10px; }
+  .marca { font-size: .9rem; }
+  .nuvem { width: 26px; }
+  .painel h1 { display: none; }
+  .sub, .rodape, .bastidores dl { display: none; }
+  /* atalhos numa linha só, rolando para o lado */
+  .atalhos { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; }
+  .atalhos button { flex: none; }
+  .bastidores { position: absolute; top: 12px; right: 16px; margin: 0; padding: 0; border: 0; background: none; }
+  .bastidores header { margin: 0; }
+  .bastidores .rotulo { display: none; }
+  .topo { padding: 10px 16px; }
+  .mensagens { padding: 16px; }
+  .compositor { margin: 0 16px 12px; }
+}

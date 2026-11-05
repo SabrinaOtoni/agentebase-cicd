@@ -1,0 +1,27 @@
+# Chaves e configuração local — NUNCA vão para o Git
+.env
+.env.*
+!.env.example
+
+# Material das aulas (direitos reservados ao professor) — fica só na máquina
+/*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+
+# Saídas geradas pela esteira
+dist/
+relatorios/
+version.json
+
+# Sistema
+.DS_Store

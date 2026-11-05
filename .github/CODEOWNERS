@@ -1,0 +1,21 @@
+# Quem revisa cada parte do agente. A última regra que casar com o arquivo vale.
+#
+# Projeto individual: a única dona é @SabrinaOtoni. O GitHub não conta a
+# aprovação do próprio autor do PR, então a proteção da main fica com
+# "enforce_admins: false": a dona (admin) consegue mesclar, e qualquer outro
+# colaborador ou token de agente sem papel de admin passa pelo portão inteiro
+# (mesma decisão do branch-protection.json do agentebase da aula).
+
+*                     @SabrinaOtoni
+
+# Comportamento do agente: prompt, configuração e base de conhecimento.
+/prompts/             @SabrinaOtoni
+/config/              @SabrinaOtoni
+/dados/               @SabrinaOtoni
+
+# O que decide se uma versão pode ir para o ar.
+/evals/               @SabrinaOtoni
+
+# A própria esteira e a infraestrutura — mudar isso é sensível por definição.
+/.github/             @SabrinaOtoni
+/infra/               @SabrinaOtoni

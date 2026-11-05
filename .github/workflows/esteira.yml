@@ -1,0 +1,313 @@
+# Esteira de CI/CD do agente Val.
+#
+#   Pull request:  Build -> Testes -> Eval                      (nada vai para o ar)
+#   Push na main:  Build -> Testes -> Eval -> Deploy staging -> Verificação staging
+#                  -> [aprovação humana] -> Deploy produção -> Verificação produção
+#                  -> Release (o pacote fica guardado; é dele que o rollback sai)
+#
+# Princípios das aulas que este arquivo segue:
+#   - build uma vez, publica o MESMO pacote em staging e produção;
+#   - o eval é gate: abaixo do critério de config/agente.json, a esteira para;
+#   - o eval roda de novo contra o app PUBLICADO em staging, não só local;
+#   - produção só depois de aprovação no Environment "production";
+#   - segredos de produção só são liberados depois da aprovação (secrets do environment);
+#   - falhou a verificação de produção: rollback para a última release boa.
+
+name: Esteira do agente
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "README.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esteira-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  VERSAO: 1.0.${{ github.run_number }}
+
+jobs:
+  # ------------------------------------------------------------------ CI
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint e formatação (ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Compilar
+        run: python -m compileall -q agent.py api.py evals scripts
+
+      - name: Auditoria de dependências (pip-audit)
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit -r requirements.txt
+
+      - name: Empacotar versão ${{ env.VERSAO }}
+        run: python scripts/empacotar.py --versao "$VERSAO"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacote-agente
+          path: dist/*.zip
+          retention-days: 30
+
+  testes:
+    name: Testes
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      # Uma etapa por camada da pirâmide, para o log mostrar onde quebrou.
+      - name: Unitários
+        run: pytest -m unitario --cov --cov-append --junitxml=relatorios/junit-unitario.xml
+      - name: Contrato (ferramentas x código, config, prompts)
+        run: pytest -m contrato --cov --cov-append --junitxml=relatorios/junit-contrato.xml
+      - name: Run-level (loop do agente com modelo dublado)
+        run: pytest -m run_level --cov --cov-append --junitxml=relatorios/junit-run-level.xml
+      - name: API (rotas, validação, limites)
+        run: pytest -m api --cov --cov-append --junitxml=relatorios/junit-api.xml
+
+      - name: Cobertura mínima de 80%
+        run: |
+          coverage report --fail-under=80
+          echo "### Cobertura de testes" >> "$GITHUB_STEP_SUMMARY"
+          coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-testes
+          path: relatorios/
+
+  eval:
+    name: Eval
+    needs: testes
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Conferir segredo
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::Secret OPENAI_API_KEY não configurado — o eval chama o modelo de verdade."
+            exit 1
+          fi
+
+      # Avalia a versão estável e, se houver, a canário: as duas precisam passar.
+      # Em PR, cada caso roda 1 vez (rápido); antes de publicar, 3 vezes, e caso
+      # crítico só passa se passar nas 3 (o modelo não responde sempre igual).
+      - name: Golden set + LLM-as-judge
+        run: |
+          repeticoes=$([ "$GITHUB_EVENT_NAME" = "pull_request" ] && echo 1 || echo 3)
+          versoes=$(python -c "import json; p=json.load(open('config/agente.json'))['prompt']; print(' '.join(v for v in (p['estavel'], p.get('canario')) if v))")
+          status=0
+          for v in $versoes; do
+            echo "::group::Prompt $v"
+            python evals/avaliar.py --prompt "$v" --repeticoes "$repeticoes" --saida "relatorios/eval-$v.json" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-eval
+          path: relatorios/
+
+  # ------------------------------------------------------------------ CD
+  deploy-staging:
+    name: Deploy staging
+    needs: eval
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacote-agente
+          path: dist
+
+      - name: Publicar no Azure App Service (staging)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.STAGING_APP }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: dist/agente-${{ env.VERSAO }}.zip
+
+  verificar-staging:
+    name: Verificação staging
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    env:
+      URL: ${{ vars.STAGING_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Smoke test (health, versão no ar, uma conversa)
+        run: python scripts/smoke.py "$URL" --commit "$GITHUB_SHA"
+
+      - name: Eval contra o app publicado em staging
+        run: python evals/avaliar.py --url "$URL" --saida relatorios/eval-staging.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-staging
+          path: relatorios/
+
+  deploy-producao:
+    name: Deploy produção
+    needs: verificar-staging
+    runs-on: ubuntu-latest
+    # Required reviewers no Environment "production": o job espera aprovação.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    concurrency:
+      group: deploy-producao
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacote-agente
+          path: dist
+
+      - name: Publicar no Azure App Service (produção)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.PRODUCTION_APP }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: dist/agente-${{ env.VERSAO }}.zip
+
+  verificar-producao:
+    name: Verificação produção
+    needs: deploy-producao
+    runs-on: ubuntu-latest
+    env:
+      URL: ${{ vars.PRODUCTION_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Smoke test
+        run: python scripts/smoke.py "$URL" --commit "$GITHUB_SHA"
+
+      # Em produção, só os casos críticos: barato e cobre o que não pode falhar.
+      - name: Eval dos casos críticos em produção
+        run: |
+          casos=$(python -c "import json; c=json.load(open('config/agente.json'))['gates_eval']['categorias_criticas']; g=json.load(open('evals/golden_set.json'))['casos']; print(','.join(x['id'] for x in g if x['categoria'] in c))")
+          python evals/avaliar.py --url "$URL" --casos "$casos" --saida relatorios/eval-producao.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-producao
+          path: relatorios/
+
+  release:
+    name: Release
+    needs: verificar-producao
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacote-agente
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: relatorios-staging
+          path: relatorios
+
+      - name: Criar release v${{ env.VERSAO }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          taxa=$(python3 -c "import json; a=json.load(open('relatorios/eval-staging.json'))['agregado']; print(f\"{a['aprovados']}/{a['total']} casos ({a['taxa']:.0%})\")")
+          cat > notas.md <<EOF
+          Versão publicada em produção pela esteira.
+
+          - Commit: \`${GITHUB_SHA}\`
+          - Eval em staging: ${taxa}
+          - Execução: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          O pacote anexado é exatamente o que está no ar. Para voltar a esta versão:
+          Actions → Rollback → Run workflow → versao = v${VERSAO}
+          EOF
+          gh release create "v${VERSAO}" dist/agente-${VERSAO}.zip relatorios/eval-staging.json \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "v${VERSAO}" --notes-file notas.md
+
+  rollback-automatico:
+    name: Rollback automático
+    needs: [deploy-producao, verificar-producao]
+    if: failure() && needs.deploy-producao.result == 'success'
+    uses: ./.github/workflows/rollback.yml
+    with:
+      versao: ultima
+    secrets: inherit
