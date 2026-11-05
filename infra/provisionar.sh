@@ -16,7 +16,8 @@
 #   REPO=SabrinaOtoni/agentebase-cicd bash infra/provisionar.sh
 #
 # Variáveis opcionais: LOCAL (região dos apps, padrão brazilsouth), LOCAL_IA (região
-# do Azure OpenAI, padrão = LOCAL), CAPACIDADE (mil tokens/min por modelo, padrão 30),
+# do Azure OpenAI, padrão = LOCAL), CAPACIDADE e CAPACIDADE_JUIZ (mil tokens/min, padrão
+# 150 e 100; a cota de estudante para o gpt-4.1-mini é 200),
 # RG, SUFIXO, REVISOR.
 
 set -euo pipefail
@@ -25,7 +26,8 @@ RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 : "${REPO:?defina REPO=dono/repositorio}"
 LOCAL="${LOCAL:-brazilsouth}"
 LOCAL_IA="${LOCAL_IA:-$LOCAL}"
-CAPACIDADE="${CAPACIDADE:-30}"
+CAPACIDADE="${CAPACIDADE:-150}"
+CAPACIDADE_JUIZ="${CAPACIDADE_JUIZ:-100}"
 RG="${RG:-rg-agentebase-cicd}"
 REVISOR="${REVISOR:-${REPO%%/*}}"
 STARTUP="python -m uvicorn api:app --host 0.0.0.0 --port 8000"
@@ -58,18 +60,15 @@ fi
 
 publicar_modelo() {
   # O nome do deployment é o próprio modelo com a versão: o que está no config é o que roda.
-  local deployment="$1" nome="${1%-????-??-??}" versao="${1: -10}"
-  if az cognitiveservices account deployment show -g "$RG" -n "$AOAI" --deployment-name "$deployment" -o none 2>/dev/null; then
-    echo "modelo $deployment já publicado"
-    return
-  fi
-  echo "publicando $nome versão $versao"
+  # "create" é um PUT: rodar de novo só reaplica a versão e a capacidade.
+  local deployment="$1" capacidade="$2" nome="${1%-????-??-??}" versao="${1: -10}"
+  echo "publicando $nome versão $versao (capacidade: $capacidade mil tokens/min)"
   az cognitiveservices account deployment create -g "$RG" -n "$AOAI" --deployment-name "$deployment" \
     --model-name "$nome" --model-version "$versao" --model-format OpenAI \
-    --sku-name GlobalStandard --sku-capacity "$CAPACIDADE" -o none
+    --sku-name GlobalStandard --sku-capacity "$capacidade" -o none
 }
-publicar_modelo "$MODELO"
-[ "$JUIZ" = "$MODELO" ] || publicar_modelo "$JUIZ"
+publicar_modelo "$MODELO" "$CAPACIDADE"
+[ "$JUIZ" = "$MODELO" ] || publicar_modelo "$JUIZ" "$CAPACIDADE_JUIZ"
 
 OPENAI_BASE_URL="$(az cognitiveservices account show -g "$RG" -n "$AOAI" --query properties.endpoint -o tsv)openai/v1/"
 OPENAI_API_KEY="$(az cognitiveservices account keys list -g "$RG" -n "$AOAI" --query key1 -o tsv)"

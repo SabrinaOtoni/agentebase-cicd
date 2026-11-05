@@ -216,3 +216,45 @@ class TestSmoke:
     def test_reprova_se_o_health_nunca_responde(self):
         with pytest.raises(SystemExit, match="não respondeu"):
             smoke.esperar_saude(_api_falsa(health_falhas=999), "https://app.teste", minutos=0)
+
+
+@pytest.mark.parametrize(
+    ("modelo", "esperado"),
+    [
+        ("gpt-5-mini-2025-08-07", {"reasoning_effort": "low"}),
+        ("o4-mini-2025-04-16", {"reasoning_effort": "low"}),
+        ("gpt-4.1-mini-2025-04-14", {"temperature": 0}),
+    ],
+)
+def test_juiz_de_raciocinio_nao_recebe_temperatura(modelo, esperado):
+    assert avaliar.parametros_do_juiz(modelo) == esperado
+
+
+def test_juiz_barrado_pelo_filtro_vale_a_checagem_deterministica(cliente_falso, monkeypatch):
+    from test_loop import _bloqueio_azure
+
+    cliente_falso(
+        [
+            resposta(mensagem(tool_calls=[tool_call("c", "consultar_base", {"pergunta": "planos"})])),
+            resposta(mensagem(content="R$ 129,90")),
+        ]
+    )
+
+    def juiz_barrado(*a, **k):
+        raise _bloqueio_azure()
+
+    monkeypatch.setattr(avaliar, "julgar", juiz_barrado)
+    resultado = avaliar.avaliar_caso({**CASO, "turnos": ["preço?"]}, _args(sem_juiz=False), "j")
+    assert resultado["aprovado"] and resultado["juiz"]["aprovado"] is None
+
+
+def test_juiz_fora_do_ar_conta_como_infraestrutura(cliente_falso, monkeypatch):
+    cliente_falso(
+        [
+            resposta(mensagem(tool_calls=[tool_call("c", "consultar_base", {"pergunta": "planos"})])),
+            resposta(mensagem(content="R$ 129,90")),
+        ]
+    )
+    monkeypatch.setattr(avaliar, "julgar", lambda *a, **k: (_ for _ in ()).throw(TimeoutError("lento")))
+    resultado = avaliar.avaliar_caso({**CASO, "turnos": ["preço?"]}, _args(sem_juiz=False), "j")
+    assert not resultado["aprovado"] and resultado["erro_infra"]
