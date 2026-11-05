@@ -2,24 +2,30 @@
 # Provisiona a infraestrutura do agente e liga o GitHub a ela. Idempotente:
 # rodar de novo só reaplica o estado descrito aqui (Git como fonte da verdade).
 #
-#   Azure:  1 resource group, 2 App Service Plans F1 (gratuitos, Linux) e 2 Web Apps
-#           Python 3.12 — staging e produção —, cada um no seu plano, porque o F1
-#           mantém um app por plano.
+#   Azure:  1 resource group; 1 Azure OpenAI com os modelos do config/agente.json
+#           (agente e juiz do eval), cada um fixado na versão datada; 2 App Service
+#           Plans F1 (gratuitos, Linux) e 2 Web Apps Python 3.12 — staging e
+#           produção —, cada um no seu plano, porque o F1 mantém um app por plano.
 #   GitHub: environments staging e production (produção com aprovação obrigatória),
 #           segredos, variáveis e a proteção da main.
 #
-# Pré-requisitos: `az login` feito; `gh` com acesso de admin ao repositório; .env
-# com OPENAI_API_KEY na raiz do projeto.
+# Pré-requisitos: `az login` feito; `gh` com acesso de admin ao repositório.
+# O script grava no .env local (fora do Git) o endereço e a chave do Azure OpenAI,
+# para rodar os evals na máquina.
 #
 #   REPO=SabrinaOtoni/agentebase-cicd bash infra/provisionar.sh
 #
-# Variáveis opcionais: LOCAL (região, padrão brazilsouth), RG, SUFIXO, REVISOR.
+# Variáveis opcionais: LOCAL (região dos apps, padrão brazilsouth), LOCAL_IA (região
+# do Azure OpenAI, padrão = LOCAL), CAPACIDADE (mil tokens/min por modelo, padrão 30),
+# RG, SUFIXO, REVISOR.
 
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 : "${REPO:?defina REPO=dono/repositorio}"
 LOCAL="${LOCAL:-brazilsouth}"
+LOCAL_IA="${LOCAL_IA:-$LOCAL}"
+CAPACIDADE="${CAPACIDADE:-30}"
 RG="${RG:-rg-agentebase-cicd}"
 REVISOR="${REVISOR:-${REPO%%/*}}"
 STARTUP="python -m uvicorn api:app --host 0.0.0.0 --port 8000"
@@ -27,8 +33,10 @@ TAGS=(projeto=agentebase-cicd disciplina=deploy-cicd turma=3AIER)
 
 passo() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
-OPENAI_API_KEY="$(grep -E '^OPENAI_API_KEY=' "$RAIZ/.env" | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
-[ -n "$OPENAI_API_KEY" ] || { echo "OPENAI_API_KEY vazia em $RAIZ/.env" >&2; exit 1; }
+# Os modelos vêm do estado desejado no Git: "gpt-4o-mini-2024-07-18" = modelo + versão.
+read -r MODELO JUIZ < <(python3 -c "
+import json; c = json.load(open('$RAIZ/config/agente.json'))
+print(c['modelo'], c['gates_eval'].get('modelo_juiz', c['modelo']))")
 
 ASSINATURA="$(az account show --query id -o tsv)"
 # Sufixo estável por assinatura: nome de Web App precisa ser único no Azure inteiro.
@@ -39,6 +47,37 @@ APP_PRD="val-nimbus-$SUFIXO"
 passo "Azure: assinatura $(az account show --query name -o tsv) · região $LOCAL"
 az provider register --namespace Microsoft.Web --wait >/dev/null
 az group create -n "$RG" -l "$LOCAL" --tags "${TAGS[@]}" -o none
+
+AOAI="aoai-val-$SUFIXO"
+passo "Azure OpenAI: $AOAI ($LOCAL_IA)"
+az provider register --namespace Microsoft.CognitiveServices --wait >/dev/null
+if ! az cognitiveservices account show -g "$RG" -n "$AOAI" -o none 2>/dev/null; then
+  az cognitiveservices account create -g "$RG" -n "$AOAI" -l "$LOCAL_IA" --kind OpenAI --sku S0 \
+    --custom-domain "$AOAI" --tags "${TAGS[@]}" --yes -o none
+fi
+
+publicar_modelo() {
+  # O nome do deployment é o próprio modelo com a versão: o que está no config é o que roda.
+  local deployment="$1" nome="${1%-????-??-??}" versao="${1: -10}"
+  if az cognitiveservices account deployment show -g "$RG" -n "$AOAI" --deployment-name "$deployment" -o none 2>/dev/null; then
+    echo "modelo $deployment já publicado"
+    return
+  fi
+  echo "publicando $nome versão $versao"
+  az cognitiveservices account deployment create -g "$RG" -n "$AOAI" --deployment-name "$deployment" \
+    --model-name "$nome" --model-version "$versao" --model-format OpenAI \
+    --sku-name GlobalStandard --sku-capacity "$CAPACIDADE" -o none
+}
+publicar_modelo "$MODELO"
+[ "$JUIZ" = "$MODELO" ] || publicar_modelo "$JUIZ"
+
+OPENAI_BASE_URL="$(az cognitiveservices account show -g "$RG" -n "$AOAI" --query properties.endpoint -o tsv)openai/v1/"
+OPENAI_API_KEY="$(az cognitiveservices account keys list -g "$RG" -n "$AOAI" --query key1 -o tsv)"
+
+# .env local para rodar os evals na máquina (o arquivo é ignorado pelo Git).
+umask 077
+printf '%s\n' "# Gerado por infra/provisionar.sh — Azure OpenAI $AOAI. Não vai para o Git." \
+  "OPENAI_API_KEY=$OPENAI_API_KEY" "OPENAI_BASE_URL=$OPENAI_BASE_URL" >"$RAIZ/.env"
 
 criar_app() {
   local app="$1" ambiente="$2" plano="plan-$1"
@@ -51,7 +90,8 @@ criar_app() {
   az webapp update -g "$RG" -n "$app" --https-only true -o none
   # A saída do comando lista as configurações; vai para /dev/null para a chave não aparecer.
   az webapp config appsettings set -g "$RG" -n "$app" -o none --settings \
-    SCM_DO_BUILD_DURING_DEPLOYMENT=true AMBIENTE="$ambiente" OPENAI_API_KEY="$OPENAI_API_KEY" >/dev/null
+    SCM_DO_BUILD_DURING_DEPLOYMENT=true AMBIENTE="$ambiente" \
+    OPENAI_API_KEY="$OPENAI_API_KEY" OPENAI_BASE_URL="$OPENAI_BASE_URL" >/dev/null
   # O deploy por publish profile usa autenticação básica no SCM (só nele; FTP fica desligado).
   az resource update -g "$RG" --namespace Microsoft.Web --resource-type basicPublishingCredentialsPolicies \
     --parent "sites/$app" -n scm --set properties.allow=true -o none
@@ -105,6 +145,7 @@ done
 
 passo "GitHub: segredos e variáveis"
 printf '%s' "$OPENAI_API_KEY" | gh secret set OPENAI_API_KEY --repo "$REPO"
+gh variable set OPENAI_BASE_URL --repo "$REPO" --body "$OPENAI_BASE_URL"
 # O publish profile vai do Azure direto para o GitHub, sem passar por arquivo.
 az webapp deployment list-publishing-profiles -g "$RG" -n "$APP_STG" --xml |
   gh secret set AZURE_WEBAPP_PUBLISH_PROFILE --env staging --repo "$REPO"
@@ -116,6 +157,7 @@ gh variable set PRODUCTION_APP --repo "$REPO" --body "$APP_PRD"
 gh variable set PRODUCTION_URL --repo "$REPO" --body "$URL_PRD"
 
 passo "Pronto"
+echo "modelo:   $OPENAI_BASE_URL ($MODELO, juiz $JUIZ)"
 echo "staging:  $URL_STG"
 echo "produção: $URL_PRD"
 echo "Próximo passo: um push na main (ou Actions → Esteira do agente → Run workflow)."

@@ -26,13 +26,13 @@ flowchart LR
     U([Cliente no navegador]) -->|HTTPS| F[Front<br/>web/]
     F -->|POST /api/chat| A[API FastAPI<br/>api.py]
     A --> L[Loop do agente<br/>agent.py]
-    L -->|chat.completions + tools| O[(OpenAI<br/>gpt-4o-mini datado)]
+    L -->|chat.completions + tools| O[(Azure OpenAI<br/>modelo em versão datada)]
     L --> T1[consultar_base]
     L --> T2[abrir_chamado]
     L --> T3[somar]
     T1 --> K[(dados/base_nimbus.json)]
     C[config/agente.json<br/>prompts/val-v1.md] -.versionados no Git.-> L
-    subgraph Azure App Service · Linux · Python 3.12
+    subgraph Azure App Service · Linux · Python 3.12 · plano F1
       F
       A
       L
@@ -128,7 +128,7 @@ python evals/avaliar.py --url <URL>     # eval contra um ambiente publicado
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-cp .env.example .env                                # cole a OPENAI_API_KEY
+cp .env.example .env                                # chave e endereço do Azure OpenAI (o provisionar.sh preenche)
 uvicorn api:app --reload                            # http://127.0.0.1:8000
 python agent.py                                     # versão de terminal
 ```
@@ -138,12 +138,15 @@ python agent.py                                     # versão de terminal
 [infra/provisionar.sh](infra/provisionar.sh) cria tudo com um comando e pode
 rodar de novo sem estragar nada (só reaplica o estado descrito):
 
-- **Azure:** resource group `rg-agentebase-cicd`; dois App Service Plans **F1
-  (gratuitos)** Linux; dois Web Apps Python 3.12, staging e produção, cada um
-  no seu plano (o F1 mantém um app por plano); HTTPS obrigatório, FTP
-  desligado, TLS 1.2; chave da OpenAI nas configurações do app, nunca no Git.
+- **Azure:** resource group `rg-agentebase-cicd`; um **Azure OpenAI** com o
+  modelo do agente e o do juiz, publicados com a versão que está em
+  `config/agente.json` (o script lê o config: a infra do modelo também segue o
+  Git); dois App Service Plans **F1 (gratuitos)** Linux; dois Web Apps Python
+  3.12, staging e produção, cada um no seu plano (o F1 mantém um app por
+  plano); HTTPS obrigatório, FTP desligado, TLS 1.2; endereço e chave do Azure
+  OpenAI nas configurações do app, nunca no Git.
 - **GitHub:** environments `staging` e `production` (só a `main` publica;
-  produção exige aprovação), segredos (chave da OpenAI no repositório, publish
+  produção exige aprovação), segredos (chave do Azure OpenAI no repositório, publish
   profile de cada app **no seu environment**, liberado só depois da
   aprovação), variáveis com nome e URL dos apps, proteção da `main`.
 
@@ -201,8 +204,9 @@ REPO=SabrinaOtoni/agentebase-cicd bash infra/provisionar.sh
   reduzem isso, não eliminam.
 - O limite por IP é em memória, por instância. Com várias instâncias, o lugar
   dele é um gateway (Azure API Management).
-- A chave da OpenAI fica nas configurações do App Service. O próximo passo
-  seria o Azure Key Vault com identidade gerenciada.
+- A chave do Azure OpenAI fica nas configurações do App Service. O próximo
+  passo seria a identidade gerenciada do App Service com acesso direto ao
+  Azure OpenAI, sem chave nenhuma (e o Key Vault para o que sobrar).
 
 ## Estrutura
 

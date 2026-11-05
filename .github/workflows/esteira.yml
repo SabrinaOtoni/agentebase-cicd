@@ -116,6 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -187,6 +188,7 @@ jobs:
     env:
       URL: ${{ vars.STAGING_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -241,6 +243,7 @@ jobs:
     env:
       URL: ${{ vars.PRODUCTION_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
