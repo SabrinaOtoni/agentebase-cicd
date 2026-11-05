@@ -12,8 +12,8 @@ ambientes no Azure, aprovação humana, release versionada e rollback.
 
 | | |
 |---|---|
-| Produção | <!--URL_PRODUCAO--> |
-| Staging | <!--URL_STAGING--> |
+| Produção | [val-nimbus-8b6698.azurewebsites.net](https://val-nimbus-8b6698.azurewebsites.net) — versão no ar: [v1.0.4](../../releases/tag/v1.0.4) |
+| Staging | [val-nimbus-stg-8b6698.azurewebsites.net](https://val-nimbus-stg-8b6698.azurewebsites.net) |
 | Esteira | [Actions](../../actions/workflows/esteira.yml) |
 | Versões publicadas | [Releases](../../releases) |
 

@@ -158,6 +158,8 @@ Azure for Students; a troca foi uma linha em `config/agente.json`.
 | 5 | val-v2 ×3 | avaliação da conversa inteira; juiz aceita o que as instruções mandam dizer; vazamento só nos casos de ataque; critérios reduzidos ao essencial; **guardrail de dado sensível** | 16/22 |
 | 6 | val-v2 ×3 | crítico: checagens objetivas em todas as execuções e juiz na maioria; prompt pede para reconhecer o transtorno | **21/22**, só um caso crítico falhando |
 | 7 | val-v2 ×3 | critério do caso da senha reduzido ao essencial | casos de dado sensível 2/2 |
+| Esteira #2 | val-v2 | primeira esteira completa; eval em staging com 1 execução por caso | pré-deploy aprovado; staging 21/22 — um caso crítico reprovado por uma única leitura do juiz |
+| Esteira #4 | val-v2 ×3 | staging e produção também com 3 execuções ([PR #1](https://github.com/SabrinaOtoni/agentebase-cicd/pull/1)) | **staging 22/22**, produção aprovada, release [v1.0.4](https://github.com/SabrinaOtoni/agentebase-cicd/releases/tag/v1.0.4) |
 
 O relatório JSON de cada rodada ficou em `relatorios/` (fora do Git); a esteira
 guarda o da execução como artefato e anexa o de staging à release.
