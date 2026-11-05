@@ -203,8 +203,10 @@ jobs:
       - name: Smoke test (health, versão no ar, uma conversa)
         run: python scripts/smoke.py "$URL" --commit "$GITHUB_SHA"
 
+      # Mesma regra do eval pré-deploy: 3 execuções por caso, para uma leitura
+      # isolada do juiz não decidir sozinha.
       - name: Eval contra o app publicado em staging
-        run: python evals/avaliar.py --url "$URL" --saida relatorios/eval-staging.json
+        run: python evals/avaliar.py --url "$URL" --repeticoes 3 --saida relatorios/eval-staging.json
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -262,7 +264,7 @@ jobs:
       - name: Eval dos casos críticos em produção
         run: |
           casos=$(python -c "import json; c=json.load(open('config/agente.json'))['gates_eval']['categorias_criticas']; g=json.load(open('evals/golden_set.json'))['casos']; print(','.join(x['id'] for x in g if x['categoria'] in c))")
-          python evals/avaliar.py --url "$URL" --casos "$casos" --saida relatorios/eval-producao.json
+          python evals/avaliar.py --url "$URL" --casos "$casos" --repeticoes 3 --saida relatorios/eval-producao.json
 
       - uses: actions/upload-artifact@v4
         if: always()

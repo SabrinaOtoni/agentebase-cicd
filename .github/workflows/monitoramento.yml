@@ -41,7 +41,7 @@ jobs:
       - name: Casos críticos do eval
         run: |
           casos=$(python -c "import json; c=json.load(open('config/agente.json'))['gates_eval']['categorias_criticas']; g=json.load(open('evals/golden_set.json'))['casos']; print(','.join(x['id'] for x in g if x['categoria'] in c))")
-          python evals/avaliar.py --url "$URL" --casos "$casos" --saida relatorios/monitoramento.json
+          python evals/avaliar.py --url "$URL" --casos "$casos" --repeticoes 3 --saida relatorios/monitoramento.json
 
       - uses: actions/upload-artifact@v4
         if: always()
